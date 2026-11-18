@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#eef3ff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="우리 집 보드">
+<meta name="description" content="우리 집 보드">
+<meta name="robots" content="noindex, nofollow">
+<title>우리 집 보드</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔒</text></svg>">
+</head>
+<body class="locked">
+
+<!-- 잠금 화면 -->
+<div class="lock-screen" id="lockScreen">
+  <div class="lock-card">
+    <div class="lock-icon" aria-hidden="true">🔒</div>
+    <h1 class="lock-title">우리 집 보드</h1>
+    <p class="lock-sub">비밀번호를 입력하면 열려요</p>
+
+    <form class="lock-form" id="lockForm" autocomplete="off" novalidate>
+      <input class="lock-input" id="lockInput" type="password" inputmode="numeric"
+             pattern="[0-9]*" maxlength="12" autocomplete="off" autocorrect="off"
+             autocapitalize="off" spellcheck="false" placeholder="비밀번호" aria-label="비밀번호">
+      <label class="lock-remember">
+        <input type="checkbox" id="rememberDevice" checked>
+        <span>이 기기에서 잠금 해제 유지</span>
+      </label>
+      <button type="submit" class="lock-btn" id="lockSubmit">열기</button>
+    </form>
+
+    <p class="lock-error" id="lockError" role="alert" aria-live="polite"></p>
+  </div>
+</div>
+
+<header class="hero app-shell">
+  <div class="hero-inner">
+    <div class="hero-top">
+      <h1 class="title">우리 집 보드</h1>
+      <button type="button" class="lock-now" id="lockNow" aria-label="잠금">🔒 잠금</button>
+    </div>
+    <div class="hero-row">
+      <p class="today" id="todayLabel">오늘</p>
+      <span class="pill" id="ddayPill">D-day</span>
+    </div>
+    <p class="hero-sub" id="heroSub"></p>
+  </div>
+</header>
+
+<main class="wrap app-shell" id="main">
+
+  <!-- 오늘 -->
+  <section class="tab-panel is-active" id="panel-today" role="tabpanel" aria-labelledby="tab-today">
+    <article class="card card-meal" id="todayMealCard">
+      <header class="card-head">
+        <h2><span class="ico">🍚</span> 오늘의 급식</h2>
+        <span class="kcal" id="todayKcal"></span>
+      </header>
+      <ul class="menu-list" id="todayMenu"><li class="loading">불러오는 중…</li></ul>
+      <p class="note" id="todayMealNote"></p>
+    </article>
+
+    <article class="card" id="todayAcademyCard">
+      <header class="card-head">
+        <h2><span class="ico">🏃</span> 오늘의 학원</h2>
+        <span class="muted" id="todayAcademyCount"></span>
+      </header>
+      <ol class="timeline" id="todayTimeline"></ol>
+      <p class="note" id="todayAcademyNote"></p>
+    </article>
+
+    <article class="card card-dday">
+      <header class="card-head">
+        <h2><span class="ico">🎒</span> 방학까지</h2>
+      </header>
+      <p class="dday-big" id="ddayBig">-</p>
+      <p class="note" id="ddayNote"></p>
+      <ul class="mini-events" id="nextEvents"></ul>
+    </article>
+  </section>
+
+  <!-- 시간표 -->
+  <section class="tab-panel" id="panel-timetable" role="tabpanel" aria-labelledby="tab-timetable">
+    <div class="section-head">
+      <h2>주간 학원 시간표</h2>
+      <p class="muted">월~토 · 오늘 요일은 색으로 표시돼요</p>
+    </div>
+    <div id="timetable" class="timetable"></div>
+    <p class="note center" id="timetableNote"></p>
+  </section>
+
+  <!-- 급식 -->
+  <section class="tab-panel" id="panel-meal" role="tabpanel" aria-labelledby="tab-meal">
+    <div class="section-head row-between">
+      <h2>급식표</h2>
+      <div class="week-nav">
+        <button type="button" class="icon-btn" id="prevWeek" aria-label="지난 주">‹</button>
+        <span id="weekRange" class="week-range">-</span>
+        <button type="button" class="icon-btn" id="nextWeek" aria-label="다음 주">›</button>
+      </div>
+    </div>
+    <div id="weekMeals" class="week-meals"></div>
+
+    <div class="section-head">
+      <h2 id="monthTitle">이번 달 전체 급식</h2>
+      <p class="muted">날짜를 누르면 식단이 펼쳐져요</p>
+    </div>
+    <div id="monthMeals" class="month-meals"></div>
+    <p class="note" id="mealSourceNote"></p>
+  </section>
+
+  <!-- 숙제 -->
+  <section class="tab-panel" id="panel-homework" role="tabpanel" aria-labelledby="tab-homework">
+    <div class="section-head row-between">
+      <h2>숙제 · 준비물</h2>
+      <span class="muted" id="hwProgress">0 / 0</span>
+    </div>
+    <div class="progress"><div class="progress-bar" id="hwBar"></div></div>
+
+    <form class="hw-form" id="hwForm" autocomplete="off">
+      <input type="text" id="hwInput" maxlength="60" placeholder="할 일을 적어 주세요 (예: 수학 12쪽)" aria-label="할 일 추가">
+      <button type="submit" class="add-btn">추가</button>
+    </form>
+
+    <ul class="hw-list" id="hwList"></ul>
+    <p class="note" id="hwNote">체크한 내용은 이 기기에만 저장돼요. 알림장에 올라온 숙제·준비물은 자동으로 채워지고, 지난 알림장 항목은 정리돼요.</p>
+    <button type="button" class="ghost-btn" id="hwClearDone">완료한 항목 지우기</button>
+  </section>
+
+  <!-- 일정 -->
+  <section class="tab-panel" id="panel-events" role="tabpanel" aria-labelledby="tab-events">
+    <div class="section-head">
+      <h2>시험 · 수행평가</h2>
+      <p class="muted">알림장에 올라온 일정과 범위 그대로</p>
+    </div>
+    <div class="exam-card" id="examCard" hidden>
+      <header class="exam-head">
+        <h3 id="examTitle"></h3>
+        <span class="badge" id="examDday"></span>
+      </header>
+      <ul class="exam-list" id="examList"></ul>
+      <p class="note" id="examNote"></p>
+    </div>
+    <p class="note" id="examEmpty">지금은 예정된 시험이 없어요.</p>
+
+    <div class="section-head">
+      <h2>학사일정</h2>
+      <p class="muted">2026학년도</p>
+    </div>
+    <ul class="event-list" id="eventList"></ul>
+    <p class="note" id="eventSourceNote"></p>
+  </section>
+
+</main>
+
+<footer class="foot app-shell" id="footNote"></footer>
+
+<nav class="tabbar app-shell" role="tablist" aria-label="메뉴">
+  <button type="button" role="tab" class="tab is-active" id="tab-today" data-tab="today" aria-selected="true"><span class="ti">🏠</span>오늘</button>
+  <button type="button" role="tab" class="tab" id="tab-timetable" data-tab="timetable" aria-selected="false"><span class="ti">📅</span>시간표</button>
+  <button type="button" role="tab" class="tab" id="tab-meal" data-tab="meal" aria-selected="false"><span class="ti">🍱</span>급식</button>
+  <button type="button" role="tab" class="tab" id="tab-homework" data-tab="homework" aria-selected="false"><span class="ti">✅</span>숙제</button>
+  <button type="button" role="tab" class="tab" id="tab-events" data-tab="events" aria-selected="false"><span class="ti">📌</span>일정</button>
+</nav>
+
+<script src="data-enc.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
