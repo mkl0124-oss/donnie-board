@@ -101,14 +101,14 @@ done
 [ -n "$ok" ] || echo "  경고: index.html 새 버전이 아직 안 보입니다. 1~2분 뒤 다시 확인하세요." >&2
 
 for asset in "app.js" "styles.css" "data-enc.js" "version.json" "data.enc.json"; do
-  code=$(curl -s -o /dev/null -w "%{http_code}" "${REPO_URL}${asset}?v=$VER")
+  code=$(curl -s -o /dev/null -w "%{http_code}" "${REPO_URL}${asset}?v=$VER&r=$RANDOM")
   echo "  $asset?v=$VER HTTP $code"
 done
 vj=$(curl -s "${REPO_URL}version.json?t=$RANDOM")
 echo "  version.json = $vj"
 appok=""
 for i in $(seq 1 18); do
-  if curl -s "${REPO_URL}app.js?v=$VER" | grep -q "board-version: $VER"; then
+  if curl -s "${REPO_URL}app.js?v=$VER&r=$RANDOM" | grep -q "board-version: $VER"; then
     echo "  app.js 안의 버전 표식 일치"
     appok=1
     break
