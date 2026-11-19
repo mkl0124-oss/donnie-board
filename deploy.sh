@@ -107,7 +107,7 @@ done
 vj=$(curl -s "${REPO_URL}version.json?t=$RANDOM")
 echo "  version.json = $vj"
 appok=""
-for i in $(seq 1 6); do
+for i in $(seq 1 18); do
   if curl -s "${REPO_URL}app.js?v=$VER" | grep -q "board-version: $VER"; then
     echo "  app.js 안의 버전 표식 일치"
     appok=1
