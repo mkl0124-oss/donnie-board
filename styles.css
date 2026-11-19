@@ -125,6 +125,33 @@ body.locked .app-shell{display:none !important}
   white-space:nowrap;
 }
 .lock-now:active{transform:scale(.95)}
+.hero-actions{display:flex;align-items:center;gap:8px;flex:none}
+/* 새로고침 버튼 — 누르면 최신 데이터를 다시 받아 옵니다. */
+.refresh-now{
+  flex:none;
+  width:34px;height:34px;padding:0;
+  font-size:17px;line-height:1;
+  color:#4d5876;
+  background:rgba(255,255,255,.8);
+  border-radius:50%;
+  box-shadow:0 2px 8px rgba(31,37,50,.08);
+  display:grid;place-items:center;
+  -webkit-tap-highlight-color:transparent;
+  transition:color .15s, background .15s;
+}
+.refresh-now:active{transform:scale(.94)}
+.refresh-now.is-busy{color:var(--accent);background:#fff;animation:refresh-spin .8s linear infinite}
+.refresh-now.is-done{color:#0d8577;background:var(--mint-bg)}
+.refresh-now.is-fail{color:#d64545;background:#fdeaea}
+@keyframes refresh-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.refresh-now.is-busy{animation:none}}
+.refresh-note{
+  margin-left:auto;
+  font-size:12px;font-weight:800;color:#0d8577;
+  opacity:0;transition:opacity .18s ease;
+  white-space:nowrap;
+}
+.refresh-note.show{opacity:1}
 .hero-row{
   display:flex;align-items:center;gap:8px;
   margin-top:10px;flex-wrap:wrap;

@@ -1,5 +1,6 @@
 /* 우리 집 보드 — 학원·급식·숙제 보드
-   데이터: data-enc.js 의 암호문(window.DONNIE_ENC)을 비밀번호로 풀어서 씁니다.
+   board-version: 20261119181426
+   데이터: 열 때마다 data.enc.json 을 직접 받아(data-enc.js 는 예비용) 비밀번호로 풀어서 씁니다.
    평문 데이터는 저장소에 올리지 않습니다. */
 (function () {
   'use strict';
@@ -10,6 +11,7 @@
   var HW_KEY = 'donnie.homework.v1';
   var TAB_KEY = 'donnie.tab';
   var KEY_STORE = 'donnie.key.v1';
+  var DATA_REFRESH_MS = 5 * 60 * 1000;  /* 화면을 띄워 둔 동안 최신 데이터를 다시 확인하는 간격 */
   var DEFAULT_HW = [
     '학교 알림장 확인',
     '학원 가방 챙기기',
@@ -20,6 +22,10 @@
 
   var DATA = null;
   var weekOffset = 0;
+  var MY_VER = '';            /* index.html 이 기억하는 코드 버전 */
+  var refreshing = false;
+  var refreshInFlight = null;
+  var refreshNoteTimer = null;
 
   /* ---------- time helpers (Asia/Seoul) ---------- */
 
@@ -145,6 +151,127 @@
 
   function forgetKey() {
     try { localStorage.removeItem(KEY_STORE); } catch (e) {}
+  }
+
+  /* ---------- 최신 암호문 직접 받기 (정적 data-enc.js 는 실패할 때 쓰는 예비) ---------- */
+
+  function validEnc(e) {
+    return !!(e && e.salt && e.iv && e.ciphertext);
+  }
+
+  function encSig(e) {
+    return e ? String(e.salt || '') + '|' + String(e.iv || '') + '|' + String(e.ciphertext || '') : '';
+  }
+
+  /* 캐시를 건너띄고 서버의 최신 암호문을 받아 옵니다. 실패하면 null. */
+  function fetchEnc() {
+    if (!window.fetch) return Promise.resolve(null);
+    return fetch('./data.enc.json?t=' + Date.now(), { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { return validEnc(j) ? j : null; })
+      .catch(function () { return null; });
+  }
+
+  function fetchLatestVersion() {
+    if (!window.fetch) return Promise.resolve('');
+    return fetch('version.json?t=' + Date.now(), { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { return (j && j.version) || ''; })
+      .catch(function () { return ''; });
+  }
+
+  /* 화면만 다시 그립니다. (보던 탭·스크롤 위치·체크 상태는 그대로) */
+  function applyData(data) {
+    T = seoulNow();
+    DATA = data;
+    renderAll();
+  }
+
+  /* 최신 암호문을 받아 내용이 바뀌었을 때만 다시 그립니다.
+     결과: 'updated' | 'same' | 'fail' | 'locked' */
+  function refreshData() {
+    if (!AES_KEY || !DATA) return Promise.resolve('locked');
+    if (refreshInFlight) return refreshInFlight;   /* 여러 번 불려도 요청은 한 번만 */
+
+    var prev = ENC;
+    refreshInFlight = fetchEnc().then(function (enc) {
+      if (!enc) { ENC = prev; return 'fail'; }
+      if (encSig(enc) === encSig(prev)) { ENC = prev; return 'same'; }
+      ENC = enc;
+      return decryptWith(AES_KEY).then(function (data) {
+        applyData(data);
+        return 'updated';
+      }).catch(function () {
+        ENC = prev;
+        return 'fail';
+      });
+    }).catch(function () {
+      ENC = prev;
+      return 'fail';
+    }).then(function (res) {
+      refreshInFlight = null;
+      return res;
+    });
+    return refreshInFlight;
+  }
+
+  var refreshBtn = null, refreshNoteEl = null;
+
+  function setRefreshState(state, note) {
+    var btn = refreshBtn;
+    if (btn) {
+      btn.classList.toggle('is-busy', state === 'busy');
+      btn.classList.toggle('is-done', state === 'done');
+      btn.classList.toggle('is-fail', state === 'fail');
+      btn.setAttribute('aria-label', state === 'busy' ? '새로고침 중' : '새로고침');
+    }
+    if (refreshNoteTimer) { clearTimeout(refreshNoteTimer); refreshNoteTimer = null; }
+    if (refreshNoteEl) {
+      refreshNoteEl.textContent = note || '';
+      refreshNoteEl.classList.toggle('show', !!note);
+    }
+    if (note) {
+      refreshNoteTimer = setTimeout(function () {
+        refreshNoteTimer = null;
+        if (refreshNoteEl) {
+          refreshNoteEl.textContent = '';
+          refreshNoteEl.classList.remove('show');
+        }
+        if (btn) btn.classList.remove('is-done', 'is-fail');
+      }, 2000);
+    }
+  }
+
+  /* 코드가 바뀌었으면 캐시를 건너띄 주소로 한 번 다시 열립니다. */
+  function goToVersion(v) {
+    var u;
+    try { u = new URL(location.href); } catch (e) { return false; }
+    if (u.searchParams.get('v') === v) return false;
+    u.searchParams.set('v', v);
+    location.replace(u.toString());
+    return true;
+  }
+
+  /* 헤더의 새로고침 버튼: 코드 판올림 → 다시 열기, 데이터만 바뀜 → 바로 다시 받기 */
+  function refreshNow() {
+    if (refreshing) return;
+    refreshing = true;
+    setRefreshState('busy');
+
+    fetchLatestVersion().then(function (v) {
+      if (v && MY_VER && v !== MY_VER && goToVersion(v)) return null;
+      return refreshData();
+    }).then(function (res) {
+      refreshing = false;
+      if (res === null) return;   /* 새 주소로 이동 중 */
+      if (res === 'updated') setRefreshState('done', '업데이트됐어요');
+      else if (res === 'same') setRefreshState('done', '최신 상태예요');
+      else if (res === 'locked') setRefreshState('fail', '잠금을 먼저 풀어 주세요');
+      else setRefreshState('fail', '연결을 확인해 주세요');
+    }).catch(function () {
+      refreshing = false;
+      setRefreshState('fail', '연결을 확인해 주세요');
+    });
   }
 
   /* ---------- rendering: hero ---------- */
@@ -758,22 +885,52 @@
     bindHW();
     bindLock();
 
-    ENC = (window.DONNIE_ENC && window.DONNIE_ENC.ciphertext) ? window.DONNIE_ENC : null;
-    if (!ENC) { showLock('보드 데이터를 찾지 못했어요. 잠시 뒤 다시 열어 주세요.'); return; }
+    refreshBtn = document.getElementById('refreshNow');
+    refreshNoteEl = document.getElementById('refreshNote');
+    var verMeta = document.querySelector('meta[name="board-version"]');
+    MY_VER = verMeta ? (verMeta.getAttribute('content') || '') : '';
+    if (refreshBtn) refreshBtn.addEventListener('click', refreshNow);
+
     if (!cryptoReady()) {
       showLock('이 환경에서는 잠금을 열 수 없어요. 인터넷 주소로 열어 주세요.', true);
       return;
     }
 
-    var stored = loadStoredKey();
-    if (!stored) { showLock(''); return; }
+    /* 앱으로 돌아왔을 때: 날짜가 바뀌었으면 다시 그리고, 데이터도 최신으로 맞춥니다. */
+    function wake() {
+      if (!DATA) return;
+      var now = seoulNow();
+      if (now.date !== T.date) { T = now; renderAll(); }
+      refreshData();
+    }
 
-    crypto.subtle.importKey('raw', stored, { name: 'AES-GCM' }, true, ['decrypt'])
-      .then(function (key) {
-        return decryptWith(key).then(function (data) { return { key: key, data: data }; });
-      })
-      .then(function (res) { AES_KEY = res.key; showBoard(res.data); })
-      .catch(function () { forgetKey(); showLock(''); });
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) wake();
+    });
+    window.addEventListener('pageshow', function () { wake(); });
+    window.addEventListener('focus', function () { wake(); });
+
+    /* 화면을 띄워 둔 동안에도 가끔 새 데이터를 확인합니다. (숨겨져 있을 땐 쉼) */
+    setInterval(function () {
+      if (!document.hidden && DATA) refreshData();
+    }, DATA_REFRESH_MS);
+
+    var fallback = validEnc(window.DONNIE_ENC) ? window.DONNIE_ENC : null;
+    var stored = loadStoredKey();
+
+    /* 열 때마다 서버의 최신 암호문을 먼저 받아 옵니다. (오프라인·실패 시 정적 data-enc.js) */
+    fetchEnc().then(function (fresh) {
+      ENC = fresh || fallback;
+      if (!ENC) { showLock('보드 데이터를 찾지 못했어요. 잠시 뒤 다시 열어 주세요.'); return; }
+      if (!stored) { showLock(''); return; }
+
+      return crypto.subtle.importKey('raw', stored, { name: 'AES-GCM' }, true, ['decrypt'])
+        .then(function (key) {
+          return decryptWith(key).then(function (data) { return { key: key, data: data }; });
+        })
+        .then(function (res) { AES_KEY = res.key; showBoard(res.data); })
+        .catch(function () { forgetKey(); showLock(''); });
+    });
   }
 
   if (document.readyState === 'loading') {

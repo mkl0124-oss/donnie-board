@@ -8,8 +8,12 @@
 <meta name="apple-mobile-web-app-title" content="우리 집 보드">
 <meta name="description" content="우리 집 보드">
 <meta name="robots" content="noindex, nofollow">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="board-version" content="20261119181426">
 <title>우리 집 보드</title>
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css?v=20261119181426">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔒</text></svg>">
 </head>
 <body class="locked">
@@ -40,11 +44,15 @@
   <div class="hero-inner">
     <div class="hero-top">
       <h1 class="title">우리 집 보드</h1>
-      <button type="button" class="lock-now" id="lockNow" aria-label="잠금">🔒 잠금</button>
+      <div class="hero-actions">
+        <button type="button" class="refresh-now" id="refreshNow" aria-label="새로고침" title="새로고침">↻</button>
+        <button type="button" class="lock-now" id="lockNow" aria-label="잠금">🔒 잠금</button>
+      </div>
     </div>
     <div class="hero-row">
       <p class="today" id="todayLabel">오늘</p>
       <span class="pill" id="ddayPill">D-day</span>
+      <span class="refresh-note" id="refreshNote" aria-live="polite"></span>
     </div>
     <p class="hero-sub" id="heroSub"></p>
   </div>
@@ -166,7 +174,31 @@
   <button type="button" role="tab" class="tab" id="tab-events" data-tab="events" aria-selected="false"><span class="ti">📌</span>일정</button>
 </nav>
 
-<script src="data-enc.js"></script>
-<script src="app.js"></script>
+<script src="data-enc.js?v=20261119181426"></script>
+<script src="app.js?v=20261119181426"></script>
+<script>
+/* 판올림 감지: index.html 이 캐시에 남아 있어도 새 배포를 알아채고 스스로 새 주소로 다시 엽니다. */
+(function () {
+  var cur = document.querySelector('meta[name="board-version"]');
+  var mine = cur ? cur.getAttribute('content') : '';
+  if (!mine || !window.fetch) return;
+  fetch('version.json?ts=' + Date.now(), { cache: 'no-store' })
+    .then(function (r) { return r.ok ? r.text() : ''; })
+    .then(function (t) {
+      var latest = '';
+      try { latest = (JSON.parse(t) || {}).version || ''; } catch (e) { return; }
+      if (!latest || latest === mine) return;
+      var u = new URL(location.href);
+      if (u.searchParams.get('v') === latest) return;
+      try {
+        if (sessionStorage.getItem('donnie.reloadFor') === latest) return;
+        sessionStorage.setItem('donnie.reloadFor', latest);
+      } catch (e) {}
+      u.searchParams.set('v', latest);
+      location.replace(u.toString());
+    })
+    .catch(function () {});
+})();
+</script>
 </body>
 </html>

@@ -4,6 +4,9 @@
 휴대폰에서 파일로 바로 열 때(인터넷 주소 없이) 쓰는 오프라인용 파일입니다.
 이 파일에도 암호문만 들어갑니다. (열 때는 같은 비밀번호가 필요합니다)
 
+index.html 의 자산 주소에는 캐시 버스팅용 `?v=...` 가 붙어 있어도 됩니다.
+(합칠 때는 쿼리를 떼고 내용을 그대로 넣습니다.)
+
 사용: python3 build_standalone.py
 """
 import pathlib
@@ -15,18 +18,17 @@ css = (here / "styles.css").read_text(encoding="utf-8")
 js = (here / "app.js").read_text(encoding="utf-8")
 enc = (here / "data-enc.js").read_text(encoding="utf-8")
 
-if '<script src="data-enc.js"></script>' not in html:
-    raise SystemExit("index.html 에 data-enc.js script 태그가 없습니다.")
+RE_CSS = re.compile(r'<link rel="stylesheet" href="styles\.css(?:\?v=[^"]*)?">')
+RE_ENC = re.compile(r'<script src="data-enc\.js(?:\?v=[^"]*)?"></script>')
+RE_APP = re.compile(r'<script src="app\.js(?:\?v=[^"]*)?"></script>')
 
-html = html.replace(
-    '<link rel="stylesheet" href="styles.css">',
-    "<style>\n" + css + "\n</style>")
-html = html.replace(
-    '<script src="data-enc.js"></script>',
-    "<script>\n" + enc + "</script>")
-html = html.replace(
-    '<script src="app.js"></script>',
-    "<script>\n" + js + "\n</script>")
+for name, pat in (("styles.css", RE_CSS), ("data-enc.js", RE_ENC), ("app.js", RE_APP)):
+    if not pat.search(html):
+        raise SystemExit(f"index.html 에 {name} 참조가 예상한 모양으로 없습니다.")
+
+html = RE_CSS.sub(lambda m: "<style>\n" + css + "\n</style>", html, count=1)
+html = RE_ENC.sub(lambda m: "<script>\n" + enc + "</script>", html, count=1)
+html = RE_APP.sub(lambda m: "<script>\n" + js + "\n</script>", html, count=1)
 
 out = here / "donnie-board.html"
 out.write_text(html, encoding="utf-8")
