@@ -1,5 +1,5 @@
 /* 우리 집 보드 — 학원·급식·숙제 보드
-   board-version: 20261119181513
+   board-version: 20261119181814
    데이터: 열 때마다 data.enc.json 을 직접 받아(data-enc.js 는 예비용) 비밀번호로 풀어서 씁니다.
    평문 데이터는 저장소에 올리지 않습니다. */
 (function () {
@@ -166,18 +166,22 @@
   /* 캐시를 건너띄고 서버의 최신 암호문을 받아 옵니다. 실패하면 null. */
   function fetchEnc() {
     if (!window.fetch) return Promise.resolve(null);
-    return fetch('./data.enc.json?t=' + Date.now(), { cache: 'no-store' })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (j) { return validEnc(j) ? j : null; })
-      .catch(function () { return null; });
+    try {
+      return fetch('./data.enc.json?t=' + Date.now(), { cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) { return validEnc(j) ? j : null; })
+        .catch(function () { return null; });
+    } catch (e) { return Promise.resolve(null); }
   }
 
   function fetchLatestVersion() {
     if (!window.fetch) return Promise.resolve('');
-    return fetch('version.json?t=' + Date.now(), { cache: 'no-store' })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (j) { return (j && j.version) || ''; })
-      .catch(function () { return ''; });
+    try {
+      return fetch('version.json?t=' + Date.now(), { cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) { return (j && j.version) || ''; })
+        .catch(function () { return ''; });
+    } catch (e) { return Promise.resolve(''); }
   }
 
   /* 화면만 다시 그립니다. (보던 탭·스크롤 위치·체크 상태는 그대로) */
