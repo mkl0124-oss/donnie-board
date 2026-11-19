@@ -64,7 +64,14 @@ if grep -n -E "금성|바름반|김도윤|중랑구립체육센터|필드림|제
      index.html app.js styles.css data-enc.js data.enc.json version.json donnie-board.html >&2 || true
   exit 1
 fi
-if grep -q '"ciphertext": *"[A-Za-z0-9+/=]*[가-힣]' data.enc.json; then
+if python3 - <<'PY'
+import json, pathlib, re, sys
+enc = json.loads(pathlib.Path("data.enc.json").read_text(encoding="utf-8"))
+bad = re.search(r'[가-힣]', enc.get("ciphertext", ""))
+sys.exit(1 if bad else 0)
+PY
+then :
+else
   echo "암호문에 평문이 섞여 있습니다." >&2
   exit 1
 fi
@@ -99,11 +106,17 @@ for asset in "app.js" "styles.css" "data-enc.js" "version.json" "data.enc.json";
 done
 vj=$(curl -s "${REPO_URL}version.json?t=$RANDOM")
 echo "  version.json = $vj"
-if curl -s "${REPO_URL}app.js?v=$VER" | grep -q "board-version: $VER"; then
-  echo "  app.js 안의 버전 표식 일치"
-else
-  echo "  경고: app.js 버전 표식이 아직 이전 값입니다. 1~2분 뒤 다시 확인하세요." >&2
-fi
+appok=""
+for i in $(seq 1 6); do
+  if curl -s "${REPO_URL}app.js?v=$VER" | grep -q "board-version: $VER"; then
+    echo "  app.js 안의 버전 표식 일치"
+    appok=1
+    break
+  fi
+  echo "  app.js 버전 표식 확인 중… ($i)"
+  sleep 10
+done
+[ -n "$appok" ] || echo "  경고: app.js 버전 표식이 아직 이전 값입니다. 1~2분 뒤 다시 확인하세요." >&2
 plain=$(curl -s -o /dev/null -w "%{http_code}" "${REPO_URL}data.json")
 echo "  data.json HTTP $plain (404 여야 정상)"
 echo "  새 주소(캐시 없이 바로 열기): ${REPO_URL}?v=$VER"
