@@ -106,17 +106,27 @@ for asset in "app.js" "styles.css" "data-enc.js" "version.json" "data.enc.json";
 done
 vj=$(curl -s "${REPO_URL}version.json?t=$RANDOM")
 echo "  version.json = $vj"
-appok=""
-for i in $(seq 1 18); do
-  if curl -s "${REPO_URL}app.js?v=$VER&r=$RANDOM" | grep -q "board-version: $VER"; then
-    echo "  app.js 안의 버전 표식 일치"
-    appok=1
-    break
-  fi
-  echo "  app.js 버전 표식 확인 중… ($i)"
-  sleep 10
+ranok=""
+RAW="https://raw.githubusercontent.com/mkl0124-oss/donnie-board/gh-pages"
+for f in index.html app.js styles.css data-enc.js data.enc.json version.json; do
+  code=$(curl -s -o /dev/null -w "%{http_code}" "$RAW/$f")
+  echo "  gh-pages/$f HTTP $code"
 done
-[ -n "$appok" ] || echo "  경고: app.js 버전 표식이 아직 이전 값입니다. 1~2분 뒤 다시 확인하세요." >&2
+if curl -s "$RAW/app.js" | grep -q "board-version: $VER"; then
+  echo "  gh-pages app.js 버전 표식 일치"
+  ranok=1
+else
+  echo "  경고: gh-pages app.js 버전 표식이 다릅니다." >&2
+fi
+if curl -s "$RAW/version.json" | grep -q "$VER"; then
+  echo "  gh-pages version.json 일치"
+else
+  echo "  경고: gh-pages version.json 이 다릅니다." >&2
+fi
+# 사이트(CDN) 쪽 자산은 전파에 몇 분 걸릴 수 있어 참고로만 적습니다.
+live_marker=$(curl -s "${REPO_URL}app.js?v=$VER&r=$RANDOM" | grep -o "board-version: [0-9]*" | head -1)
+echo "  라이브 app.js 표식: ${live_marker:-없음} (전파가 늦으면 몇 분 뒤 맞춰집니다)"
+[ -n "$ranok" ] || echo "  경고: gh-pages 브랜치 내용을 확인해 주세요." >&2
 plain=$(curl -s -o /dev/null -w "%{http_code}" "${REPO_URL}data.json")
 echo "  data.json HTTP $plain (404 여야 정상)"
 echo "  새 주소(캐시 없이 바로 열기): ${REPO_URL}?v=$VER"
